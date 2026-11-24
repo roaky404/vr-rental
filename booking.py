@@ -206,8 +206,49 @@ def run_tests() -> None:
         end_date=date(2026, 11, 22),
     )
     print(f"Результат: {'УСПЕХ' if ok else 'ОШИБКА'}")
-    print(f"Сообщение: {msg}")
+    print(f"Сообщение: {msg}\n")
+
+def test_concurrent_bookings() -> None:
+    """
+    Тест 5: Имитация двух одновременных запросов на один экземпляр.
+    В прототипе на Python без СУБД атомарность не гарантирована.
+    В реальной системе используется транзакция с SELECT ... FOR UPDATE.
+    """
+    print("ТЕСТ 5: Два одновременных запроса на одно оборудование")
+    
+    # Сбрасываем состояние для чистоты теста
+    EQUIPMENT_DB[1]["status"] = "available"
+    # Удаляем предыдущие бронирования оборудования #1
+    BOOKING_ITEMS_DB[:] = [
+        item for item in BOOKING_ITEMS_DB if item["equipment_id"] != 1
+    ]
+    BOOKINGS_DB[:] = [
+        b for b in BOOKINGS_DB if b["equipment_id"] != 1
+    ]
+    
+    # Первый запрос
+    ok1, msg1 = create_booking(
+        equipment_id=1,
+        start_date=date(2026, 12, 1),
+        end_date=date(2026, 12, 3),
+    )
+    print(f"Запрос 1: {'УСПЕХ' if ok1 else 'ОШИБКА'} — {msg1}")
+    
+    # Второй запрос на тот же период
+    ok2, msg2 = create_booking(
+        equipment_id=1,
+        start_date=date(2026, 12, 2),
+        end_date=date(2026, 12, 4),
+    )
+    print(f"Запрос 2: {'УСПЕХ' if ok2 else 'ОШИБКА'} — {msg2}")
+    
+    if ok1 and not ok2:
+        print("ВЫВОД: Прототип корректно отклонил второй запрос.")
+    else:
+        print("ВЫВОД: В прототипе без транзакций возможна гонка данных.")
+        print("В production используется SELECT ... FOR UPDATE.")
 
 
 if __name__ == "__main__":
     run_tests()
+    test_concurrent_bookings()
