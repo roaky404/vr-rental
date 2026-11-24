@@ -108,26 +108,30 @@ def create_booking(
     Возвращает кортеж (успех, сообщение).
     """
     global NEXT_BOOKING_ID
-
+    
+    # Проверка корректности дат
+    if start_date >= end_date:
+        return False, "Дата начала должна быть раньше даты окончания"
+    
     # Шаг 1. Получаем данные оборудования
     equipment = get_equipment(equipment_id)
     if equipment is None:
         return False, f"Оборудование с id={equipment_id} не найдено"
-
+    
     # Шаг 2. Проверяем статус
     if equipment["status"] != "available":
         return False, (
             f"Оборудование {equipment['serial_number']} недоступно. "
             f"Текущий статус: {equipment['status']}"
         )
-
+    
     # Шаг 3. Проверяем активные дефекты
     if has_active_defects(equipment_id):
         return False, (
             f"Оборудование {equipment['serial_number']} имеет "
             f"неустранённые дефекты"
         )
-
+    
     # Шаг 4. Проверяем пересечения дат
     overlaps = count_date_overlaps(equipment_id, start_date, end_date)
     if overlaps > 0:
@@ -135,7 +139,7 @@ def create_booking(
             f"Оборудование {equipment['serial_number']} уже занято "
             f"на выбранный период ({overlaps} пересечений)"
         )
-
+    
     # Шаг 5. Создаём запись бронирования
     booking = {
         "id": NEXT_BOOKING_ID,
@@ -145,7 +149,7 @@ def create_booking(
         "status": "active",
     }
     BOOKINGS_DB.append(booking)
-
+    
     booking_item = {
         "id": len(BOOKING_ITEMS_DB) + 1,
         "booking_id": NEXT_BOOKING_ID,
@@ -154,12 +158,11 @@ def create_booking(
         "end_date": end_date.isoformat(),
     }
     BOOKING_ITEMS_DB.append(booking_item)
-
+    
     # Шаг 6. Меняем статус оборудования
     equipment["status"] = "booked"
-
     NEXT_BOOKING_ID += 1
-
+    
     return True, (
         f"Бронирование #{booking['id']} создано. "
         f"Оборудование: {equipment['serial_number']}, "
